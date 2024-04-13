@@ -83,19 +83,19 @@ You can choose any one of following datasets to verify the effectiveness of Adap
 
 | Backbone | Dev WER  | Test WER  | Pretrained model                                             |
 | -------- | ---------- | ----------- | --- |
-| ResNet18 | 18.5%      | 18.8%       | [[Baidu]](https://pan.baidu.com/s/1n8apnDFAQlmJvI6de4AHIg) (passwd: enyp)<br />[[Google Drive]](https://drive.google.com/file/d/1Xt_4N-HjEGlVyrMENydsxNtpVMSg5zDb/view?usp=share_link) |
+| ResNet18 | 18.5%      | 18.8%       | [[Baidu]](https://pan.baidu.com/s/1n8apnDFAQlmJvI6de4AHIg) (passwd: enyp)<br />[[Google Drive]](https://drive.google.com/file/d/1XMljSMEiN3GjkAvLBvwbBYOg6fgtPIFi/view?usp=sharing) |
 
 ### PHOENIX2014-T dataset
 
 | Backbone | Dev WER  | Test WER  | Pretrained model                                             |
 | -------- | ---------- | ----------- | --- |
-| ResNet18 | 18.6%      | 18.9%       | [[Baidu]](https://pan.baidu.com/s/1R168kykOHZJ6BYuhWtkpog) (passwd: pfk1)<br />[[Google Drive]](https://drive.google.com/file/d/1c_wNHYMqCbqRE5KqrQL1P6chOw5VBS6Q/view?usp=share_link) |
+| ResNet18 | 18.6%      | 18.9%       | [[Baidu]](https://pan.baidu.com/s/1R168kykOHZJ6BYuhWtkpog) (passwd: pfk1)<br />[[Google Drive]](https://drive.google.com/file/d/1ZfPbH1xgQmENEaRLEDMNJ-D9VHkKh-mg/view?usp=sharing) |
 
 ### CSL-Daily dataset
 
 | Backbone | Dev WER  | Test WER  | Pretrained model                                            |
 | -------- | ---------- | ----------- | --- |
-| ResNet18 | 26.7%      | 26.3%       | [[Baidu]](https://pan.baidu.com/s/1xYOP34g8zt32klm5dffwww) (passwd: kbu4)<br />[[Google Drive]](https://drive.google.com/file/d/1-aSKPe9cVkvHeiJuyQm3HlZ5u63CI-mm/view?usp=share_link) |
+| ResNet18 | 26.7%      | 26.3%       | [[Baidu]](https://pan.baidu.com/s/1xYOP34g8zt32klm5dffwww) (passwd: kbu4)<br />[[Google Drive]](https://drive.google.com/file/d/1Jx189JH2x7qsFprVzwOyhAEPn9mzfT7n/view?usp=sharing) |
 
 
 ​	To evaluate the pretrained model, choose the dataset from phoenix2014/phoenix2014-T/CSL/CSL-Daily in line 3 in ./config/baseline.yaml first, and run the command below：   
