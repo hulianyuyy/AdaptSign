@@ -41,8 +41,6 @@ class Processor():
         shutil.copy2('./modules/resnet.py', self.arg.work_dir)
         if not os.path.exists(self.arg.work_dir + '/openai/'):
             shutil.copytree('./modules/openai/', self.arg.work_dir + '/openai/') 
-        if not os.path.exists(self.arg.work_dir + '/openclip/'):
-            shutil.copytree('./modules/openclip', self.arg.work_dir + '/openclip/') 
         self.recoder = utils.Recorder(self.arg.work_dir, self.arg.print_log, self.arg.log_interval)
         self.save_arg()
         if self.arg.random_fix:
