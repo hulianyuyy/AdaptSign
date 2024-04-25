@@ -303,11 +303,15 @@ class TemporalAggregationBlock(nn.Module):
         return cls
 
 class Transformer(nn.Module):
-    def __init__(self, width: int, layers: int, heads: int, attn_mask: torch.Tensor = None):
+    def __init__(self, width: int, layers: int, heads: int, attn_mask: torch.Tensor = None, checkpointing=True):
         super().__init__()
         self.width = width
+        self.checkpointing = checkpointing
         self.layers = layers
-        self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask, checkpointing= i>=0) for i in range(layers)])
+        if self.checkpointing:
+            self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask, checkpointing= i>=0) for i in range(layers)])
+        else:
+            self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask) for _ in range(layers)])
         self.query = nn.Parameter(torch.rand(1,1,width), requires_grad=True)
         self.aggblocks = nn.Sequential(*[AggregationBlock(width, heads, attn_mask) for _ in range(layers)])  # 14 for ViT-B/16
         self.taggblocks = TemporalAggregationBlock(width, heads, attn_mask)
@@ -318,10 +322,14 @@ class Transformer(nn.Module):
         query = self.query.repeat(1,N,1)
         for i in range(len(self.resblocks)):
             x = self.resblocks[i](x)
-            query = checkpoint(self.aggblocks[i], x, query)
-            #query = self.aggblocks[i](x, query)
-        #x = x + self.taggblocks(x, T) * self.temporal_ada_weight
-        x = x + checkpoint(self.taggblocks, x, T) * self.temporal_ada_weight
+            if self.checkpointing:
+                query = checkpoint(self.aggblocks[i], x, query)
+            else:
+                query = self.aggblocks[i](x, query)
+        if self.checkpointing:
+            x = x + checkpoint(self.taggblocks, x, T) * self.temporal_ada_weight
+        else:
+            x = x + self.taggblocks(x, T) * self.temporal_ada_weight
         return x, query
 
 
