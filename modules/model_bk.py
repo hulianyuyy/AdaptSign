@@ -195,20 +195,25 @@ class ResidualAttentionBlock(nn.Module):
     def attention(self, x: torch.Tensor):
         self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device) if self.attn_mask is not None else None
         return self.attn(x, torch.concat((x, self.prefix_embedding_k.repeat(1, x.shape[1], 1)), 0), torch.concat((x, self.prefix_embedding_v.repeat(1, x.shape[1], 1)), 0), need_weights=False, attn_mask=self.attn_mask)[0]
+        #return self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
 
     def forward(self, x: torch.Tensor):
         if self.checkpointing:
             x = x + checkpoint(self.attention, checkpoint(self.ln_1,x)) + self.S_Adapter(x)
         else:
             x = x + self.attention(self.ln_1(x)) + self.S_Adapter(x)
-        #x = x + self.S_Adapter(self.attention(self.ln_1(x)))
+        #x = x + self.attention(self.ln_1(x)) + self.S_Adapter(x)
         #x = x + self.mlp(self.ln_2(x))
+        #x = x + self.mlp(self.ln_2(x)) + self.MLP_Adapter(x)
         if self.checkpointing:
              x = x + checkpoint(self.mlp, checkpoint(self.ln_2,x)) + self.MLP_Adapter(x)
         else:
             x = x + self.mlp(self.ln_2(x)) + self.MLP_Adapter(x)
-        #x = x +  self.MLP_Adapter(self.mlp(self.ln_2(x)))
         return x
+
+        '''x = x + self.attention(self.ln_1(x))
+        x = x + self.mlp(self.ln_2(x))
+        return x'''
 
 class Adapter(nn.Module):
     def __init__(self, d_model: int, skip_connect=True):
@@ -269,6 +274,11 @@ class UnfoldTemporalWindows(nn.Module):
         x = x.view(-1, T, C, P).permute(0,2,1,3)
         x = self.unfold(x)  #(N, C*Window_Size, T, P)
         # Permute extra channels from window size to the graph dimension; -1 for number of windows
+        #x = x.view(-1, C, self.window_size, T, P).permute(0,3,1,2,4).reshape(NT, C, -1)# (NT)C(SP)
+        x = x.view(-1, C, self.window_size, T, P)
+        # wo_current
+        #x = torch.concat((x[:,:,:(self.window_size-1)//2], x[:,:,(self.window_size-1)//2+1:]), 2).permute(0,3,1,2,4).reshape(NT, C, -1)
+        # normal
         x = x.view(-1, C, self.window_size, T, P).permute(0,3,1,2,4).reshape(NT, C, -1)# (NT)C(SP)
         return x
 
@@ -276,7 +286,16 @@ class Correlation_Module(nn.Module):
     def __init__(self, neighbors=5):
         super().__init__()
 
+        #self.down_conv = nn.Conv3d(channels, channels, kernel_size=1, bias=False)
+        #self.weights = nn.Parameter(torch.ones(neighbors) / neighbors, requires_grad=True)
+
+        #self.spatial_pos_embedding = nn.Parameter(torch.randn(1, channels, 1, spacial_dim, spacial_dim) / channels ** 0.5)
+        #self.temporal_pos_embedding = nn.Parameter(torch.randn(1, channels, self.neighbors * 2, 1, 1) / channels ** 0.5)
+
     def forward(self, x, upfold):
+
+        #x_mean = self.attpool(x) 
+        #x2 = self.down_conv(x)
         L, N, D = x.shape
         import math
         affinities = torch.einsum('lnd,ond->lon', x, upfold)/math.sqrt(D)
@@ -288,28 +307,44 @@ class TemporalAggregationBlock(nn.Module):
     def __init__(self, d_model: int, n_head: int, attn_mask: torch.Tensor = None):
         super().__init__()
 
+        #self.attn = nn.MultiheadAttention(d_model, n_head)
         self.attn = Correlation_Module()
         self.ln_1 = LayerNorm(d_model)
+        '''self.mlp = nn.Sequential(OrderedDict([
+            ("c_fc", nn.Linear(d_model, d_model * 1)),
+            ("gelu", QuickGELU()),
+            ("c_proj", nn.Linear(d_model * 1, d_model))
+        ]))
+        self.ln_2 = LayerNorm(d_model)'''
         self.attn_mask = attn_mask
         self.upfold = UnfoldTemporalWindows(5)
 
     def attention(self, x: torch.Tensor, T):
         self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device) if self.attn_mask is not None else None
         x_upfold = self.upfold(x[1:].permute(1,2,0), T).permute(2,0,1)   #LND -> NDL -> LND
+        #return self.attn(x[:1], x_upfold, x_upfold, need_weights=False, attn_mask=self.attn_mask)[0]   # cls token attends to others
         return self.attn(x[:1], x_upfold)   # cls token attends to others
 
     def forward(self, x: torch.Tensor, T):
+        #cls = x[:1]
+        #cls = cls + self.attention(self.ln_1(x), T)
         cls = self.attention(self.ln_1(x), T)
+        #cls = cls + self.mlp(self.ln_2(cls))
         return cls
 
 class Transformer(nn.Module):
     def __init__(self, width: int, layers: int, heads: int, attn_mask: torch.Tensor = None):
+        def backward_hook(module, grad_in, grad_out):
+            print(grad_in[0].shape)  #LND 
+            print(grad_in[0][:2,:3])
         super().__init__()
         self.width = width
         self.layers = layers
         self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask, checkpointing= i>=0) for i in range(layers)])
         self.query = nn.Parameter(torch.rand(1,1,width), requires_grad=True)
         self.aggblocks = nn.Sequential(*[AggregationBlock(width, heads, attn_mask) for _ in range(layers)])  # 14 for ViT-B/16
+        #self.ada_weight = nn.Parameter(torch.zeros(width), requires_grad=True)
+        #self.resblocks[-2].mlp.register_backward_hook(backward_hook)
         self.taggblocks = TemporalAggregationBlock(width, heads, attn_mask)
         self.temporal_ada_weight = nn.Parameter(torch.zeros(1), requires_grad=True)
 
@@ -318,11 +353,15 @@ class Transformer(nn.Module):
         query = self.query.repeat(1,N,1)
         for i in range(len(self.resblocks)):
             x = self.resblocks[i](x)
-            query = checkpoint(self.aggblocks[i], x, query)
             #query = self.aggblocks[i](x, query)
+            query = checkpoint(self.aggblocks[i], x, query)
         #x = x + self.taggblocks(x, T) * self.temporal_ada_weight
         x = x + checkpoint(self.taggblocks, x, T) * self.temporal_ada_weight
         return x, query
+        '''for i in range(len(self.resblocks)):
+            x = self.ada_weight * self.aggblocks[i](x, query) + self.resblocks[i](x) 
+        return x'''
+        #return self.resblocks(x)
 
 
 class VisionTransformer(nn.Module):
@@ -338,10 +377,14 @@ class VisionTransformer(nn.Module):
         self.ln_pre = LayerNorm(width)
 
         self.transformer = Transformer(width, layers, heads)
+        #self.spatial_enhance = Transformer(width, 1, heads, Nograd=False)
 
         self.ln_post = LayerNorm(width)
         self.ln_post_cls = LayerNorm(width)
+        #self.proj = None
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
+        #self.proj_cls = nn.Parameter(scale * torch.randn(width, output_dim))
+        #self.weight = nn.Parameter(torch.ones(2)/2, requires_grad=True)
         self.ada_weight = nn.Parameter(torch.tensor([0.5, 0.5]), requires_grad=True)
 
         ## initialize S_Adapter
@@ -372,13 +415,21 @@ class VisionTransformer(nn.Module):
         x = self.ln_pre(x)
 
         x = x.permute(1, 0, 2)  # NLD -> LND
+        #x = self.transformer(x)
         x, new_cls = self.transformer(x, T)
+        #x = self.spatial_enhance(x, T=T)
         x = x.permute(1, 0, 2)  # LND -> NLD
 
         x = self.ln_post(x[:, 0, :]) * self.ada_weight[0] + self.ln_post_cls(new_cls.permute(1, 0, 2))[:,0]* self.ada_weight[1]
+        #x = self.ln_post(x[:, 0, :] * self.weight[0] + new_cls.permute(1, 0, 2)[:,0]* self.weight[1])
+        #x = self.ln_post(x[:, 0, :])
+        #new_cls = self.ln_post_cls(new_cls.permute(1, 0, 2)[:,0])
 
         if self.proj is not None:
             x = x @ self.proj
+            #new_cls = new_cls @ self.proj_cls
+
+        #return torch.concat((x, new_cls), 1)
         return x
 
 

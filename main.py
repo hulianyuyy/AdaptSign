@@ -162,7 +162,7 @@ class Processor():
 
     def freeze_parameter(self, model):
         for name, param in model.conv2d.named_parameters():
-            if 'ln_post' not in name and 'ada_weight' not in name and 'taggblocks' not in name and 'Adapter' not in name and 'prefix_embedding' not in name and 'aggblocks' not in name and 'spatial_enhance' not in name and name.split('.')[-1]!='proj' and name.split('.')[-1]!='proj_cls':
+            if 'ln_post' not in name and 'ada_weight' not in name and 'taggblocks' not in name and 'Adapter' not in name and 'prefix_embedding' not in name and 'aggblocks' not in name and name.split('.')[-1]!='proj' and name.split('.')[-1]!='proj_cls':
                 param.requires_grad = False  
 
     def loading(self):
