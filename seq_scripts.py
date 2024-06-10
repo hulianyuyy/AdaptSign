@@ -68,7 +68,7 @@ def seq_eval(cfg, loader, model, device, mode, epoch, work_dir, recoder,
         total_info += [file_name.split("|")[0] for file_name in data[-1]]
         total_sent += ret_dict['recognized_sents']
         total_conv_sent += ret_dict['conv_sents']
-    np.save('pred_clip_adapter.npy', total_conv_sent)
+    #np.save('pred_clip_adapter.npy', total_conv_sent)
     try:
         python_eval = True if evaluate_tool == "python" else False
         write2file(work_dir + "output-hypothesis-{}.ctm".format(mode), total_info, total_sent)
