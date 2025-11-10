@@ -108,3 +108,6 @@ The priorities of configuration files are: command line > config file > default 
 `python main.py --device your_device`
 
 Note that you can choose the target dataset from phoenix2014/phoenix2014-T/CSL/CSL-Daily in line 3 in ./config/baseline.yaml.
+
+### Visualizations
+We provide the `generate_attention_maps.py` in the `visualizer` folder. You should first replace the `main.py` and `model.py` in `./modules/openai` with the `main.py` and `model.py` in our `visualizer` folder. Then you could simply run `python generate_attention_maps.py` by modifying the hyperparameters in the `generate_attention_maps.py` to get desired attention maps.
